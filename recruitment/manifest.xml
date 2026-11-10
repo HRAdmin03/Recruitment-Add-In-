@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Before use: replace every https://YOURNAME.github.io/recruitment-reader with the address where you host these files. -->
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0" xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0" xsi:type="MailApp">
+  <Id>b7c1d2e4-5a63-4f08-9d21-3c6e8a1f2b47</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>HRPI</ProviderName>
+  <DefaultLocale>en-US</DefaultLocale>
+  <DisplayName DefaultValue="Recruitment reader"/>
+  <Description DefaultValue="Ranks CVs against what you are looking for and explains each rating."/>
+  <IconUrl DefaultValue="https://YOURNAME.github.io/recruitment-reader/icon-32.png"/>
+  <HighResolutionIconUrl DefaultValue="https://YOURNAME.github.io/recruitment-reader/icon-64.png"/>
+  <SupportUrl DefaultValue="https://YOURNAME.github.io/recruitment-reader/index.html"/>
+  <Hosts><Host Name="Mailbox"/></Hosts>
+  <Requirements><Sets><Set Name="Mailbox" MinVersion="1.8"/></Sets></Requirements>
+  <FormSettings>
+    <Form xsi:type="ItemRead">
+      <DesktopSettings>
+        <SourceLocation DefaultValue="https://YOURNAME.github.io/recruitment-reader/index.html"/>
+        <RequestedHeight>450</RequestedHeight>
+      </DesktopSettings>
+    </Form>
+  </FormSettings>
+  <Permissions>ReadItem</Permissions>
+  <Rule xsi:type="RuleCollection" Mode="Or">
+    <Rule xsi:type="ItemIs" ItemType="Message" FormType="Read"/>
+  </Rule>
+  <DisableEntityHighlighting>false</DisableEntityHighlighting>
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1" xsi:type="VersionOverridesV1_1">
+      <Requirements><bt:Sets DefaultMinVersion="1.8"><bt:Set Name="Mailbox"/></bt:Sets></Requirements>
+      <Hosts>
+        <Host xsi:type="MailHost">
+          <DesktopFormFactor>
+            <ExtensionPoint xsi:type="MessageReadCommandSurface">
+              <OfficeTab id="TabDefault">
+                <Group id="recGroup">
+                  <Label resid="GroupLabel"/>
+                  <Control xsi:type="Button" id="recButton">
+                    <Label resid="ButtonLabel"/>
+                    <Supertip><Title resid="ButtonLabel"/><Description resid="ButtonTip"/></Supertip>
+                    <Icon><bt:Image size="16" resid="Icon16"/><bt:Image size="32" resid="Icon32"/><bt:Image size="80" resid="Icon80"/></Icon>
+                    <Action xsi:type="ShowTaskpane"><SourceLocation resid="PaneUrl"/></Action>
+                  </Control>
+                </Group>
+              </OfficeTab>
+            </ExtensionPoint>
+          </DesktopFormFactor>
+        </Host>
+      </Hosts>
+      <Resources>
+        <bt:Images>
+          <bt:Image id="Icon16" DefaultValue="https://YOURNAME.github.io/recruitment-reader/icon-16.png"/>
+          <bt:Image id="Icon32" DefaultValue="https://YOURNAME.github.io/recruitment-reader/icon-32.png"/>
+          <bt:Image id="Icon80" DefaultValue="https://YOURNAME.github.io/recruitment-reader/icon-80.png"/>
+        </bt:Images>
+        <bt:Urls><bt:Url id="PaneUrl" DefaultValue="https://YOURNAME.github.io/recruitment-reader/index.html"/></bt:Urls>
+        <bt:ShortStrings>
+          <bt:String id="GroupLabel" DefaultValue="Recruitment"/>
+          <bt:String id="ButtonLabel" DefaultValue="Recruitment reader"/>
+        </bt:ShortStrings>
+        <bt:LongStrings><bt:String id="ButtonTip" DefaultValue="Rank the CVs in this email against what you are looking for."/></bt:LongStrings>
+      </Resources>
+    </VersionOverrides>
+  </VersionOverrides>
+</OfficeApp>

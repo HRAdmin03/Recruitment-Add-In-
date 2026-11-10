@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recruitment reader</title>
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<style>
+:root{--bg:#f5f6f2;--ink:#1c2a22;--mute:#5d6b63;--line:#d9ddd3;--card:#fff;--good:#1f5a3d;--goodbg:#e1f0e7;--mid:#8a5a00;--midbg:#fbefd0;--bad:#8c2f2f;--badbg:#f5e1df;--acc:#1f5a3d}
+@media (prefers-color-scheme:dark){:root{--bg:#141a16;--ink:#e8ede9;--mute:#9aa8a0;--line:#2b3730;--card:#1b231e;--good:#7fd1a1;--goodbg:#1d3a2a;--mid:#f0c060;--midbg:#3a2f12;--bad:#f0a0a0;--badbg:#3d1f1f;--acc:#7fd1a1}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 "Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+main{max-width:760px;margin:0 auto;padding:14px 12px 40px}
+h1{font-size:20px;margin:0 0 2px}
+.sub{color:var(--mute);margin:0 0 12px;font-size:13px}
+label{display:block;font-weight:600;margin:0 0 4px}
+.hint{font-weight:400;color:var(--mute);font-size:12px}
+textarea,input{width:100%;font:inherit;color:var(--ink);background:var(--card);border:2px solid var(--line);border-radius:8px;padding:8px 10px}
+textarea{min-height:64px;resize:vertical;font-size:15px}
+textarea:focus,input:focus{outline:none;border-color:var(--acc)}
+.field{margin-bottom:10px}
+#drop{border:2px dashed var(--line);border-radius:10px;padding:16px 10px;text-align:center;color:var(--mute);cursor:pointer;background:var(--card);margin:4px 0 8px}
+#drop.over,#drop:focus-visible{border-color:var(--acc);outline:none;color:var(--ink)}
+#drop b{color:var(--ink)}
+button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:6px 10px;border-radius:8px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+#mail{width:100%;margin-bottom:6px;border-color:var(--acc);color:var(--acc);font-weight:600}
+#status{min-height:18px;color:var(--mute);font-size:12px;margin-bottom:6px}
+.bar{display:flex;justify-content:space-between;align-items:center;margin:10px 0 6px}
+.cv{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;border-left-width:6px}
+.cv.best{border-left-color:var(--good)}.cv.chance{border-left-color:var(--mid)}.cv.no{border-left-color:var(--bad)}.cv.unread{border-left-color:var(--mute)}
+.top{display:flex;gap:8px;align-items:baseline;justify-content:space-between;flex-wrap:wrap}
+.name{font-weight:600;word-break:break-all}
+.badge{font-size:12px;font-weight:600;padding:2px 9px;border-radius:99px;white-space:nowrap}
+.best .badge{background:var(--goodbg);color:var(--good)}.chance .badge{background:var(--midbg);color:var(--mid)}.no .badge{background:var(--badbg);color:var(--bad)}.unread .badge{background:var(--line);color:var(--mute)}
+.why{margin:6px 0 0}
+.chips{margin-top:6px;display:flex;flex-wrap:wrap;gap:5px}
+.chip{font-size:12px;padding:1px 8px;border-radius:6px}
+.chip.y{background:var(--goodbg);color:var(--good)}.chip.p{background:var(--midbg);color:var(--mid)}.chip.m{background:var(--badbg);color:var(--bad)}
+.note{color:var(--mute);font-size:12px;margin:6px 0}
+.empty{color:var(--mute);text-align:center;padding:14px}
+</style>
+</head>
+<body>
+<main>
+<h1>Recruitment reader</h1>
+<p class="sub">Say what you need. The CVs are ranked against each other and each rating is explained. CVs stay on this computer.</p>
+
+<div class="field">
+<label for="want">What are you looking for? <span class="hint">Commas or new lines. Use / for either-or.</span></label>
+<textarea id="want" placeholder="e.g. packhouse manager, citrus, 5+ years, GlobalGAP / HACCP, managed 50 staff"></textarea>
+</div>
+<div class="field">
+<label for="key">Most important <span class="hint">Optional. These count triple.</span></label>
+<input id="key" placeholder="e.g. packhouse, 5+ years">
+</div>
+
+<button id="mail" type="button" hidden>Read this email&rsquo;s attachments</button>
+<div id="drop" tabindex="0" role="button" aria-label="Choose CV files"><b>Drop CVs here</b> or click to choose<br>PDF, Word (.docx) or text</div>
+<input id="file" type="file" multiple accept=".pdf,.docx,.txt" hidden>
+<div id="status"></div>
+<div class="bar"><strong id="count"></strong><button id="clear" type="button" hidden>Clear all</button></div>
+<div id="out"></div>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const docs=[];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const norm=s=>' '+s.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()+' ';
+const compact=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'');
+const split=s=>s.split(/[,;\n]+/).map(x=>x.trim()).filter(Boolean);
+const YR=/(\d{1,2})\s*\+?\s*(?:years?|yrs?)\b/i;
+const STOP=new Set(['and','the','with','for','from','staff','team','experience','years','year']);
+const status=t=>$('status').textContent=t;
+
+if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+async function readBuf(name,buf){
+  const ext=name.split('.').pop().toLowerCase();
+  if(ext==='txt')return new TextDecoder().decode(buf);
+  if(ext==='docx'){
+    if(!window.mammoth)throw new Error('Word reader did not load. Check your internet and reload.');
+    return (await mammoth.extractRawText({arrayBuffer:buf})).value;
+  }
+  if(ext==='pdf'){
+    if(!window.pdfjsLib)throw new Error('PDF reader did not load. Check your internet and reload.');
+    const pdf=await pdfjsLib.getDocument({data:buf}).promise;let t='';
+    for(let i=1;i<=pdf.numPages;i++){t+=(await (await pdf.getPage(i)).getTextContent()).items.map(x=>x.str).join(' ')+'\n'}
+    return t;
+  }
+  throw new Error('Unsupported file type');
+}
+async function addItems(items){
+  for(let i=0;i<items.length;i++){
+    const it=items[i];status('Reading '+(i+1)+' of '+items.length+': '+it.name);
+    try{
+      const text=await readBuf(it.name,await it.get());
+      docs.push({name:it.name,text,error:text.replace(/\s/g,'').length<60?'No readable text. It may be a scanned image, so read it by hand.':''});
+    }catch(e){docs.push({name:it.name,text:'',error:e.message||'Could not read this file.'})}
+  }
+  status('Done.');render();
+}
+const addFiles=l=>addItems([...l].map(f=>({name:f.name,get:()=>f.arrayBuffer()})));
+
+function maxYears(t){let m=0,r=/(\d{1,2})\s*\+?\s*(?:years?|yrs?)\b/gi,x;while((x=r.exec(t)))m=Math.max(m,+x[1]);return m}
+function credit(term,d,yrs){
+  const y=term.match(YR);
+  if(y){const need=+y[1];
+    if(yrs>=need)return {c:1,label:need+'+ years ('+yrs+' found)'};
+    if(yrs>0)return {c:Math.min(.9,yrs/need),label:'only '+yrs+' years found, wanted '+need+'+',part:1};
+    return {c:0,label:need+'+ years'};}
+  const full=term.split(/\s*(?:\/|\bor\b)\s*/i).some(a=>{const na=norm(a),ca=compact(a);return ca&&(d.n.includes(na)||(ca.length>=5&&d.c.includes(ca)))});
+  if(full)return {c:1,label:term};
+  const words=[...new Set(norm(term).trim().split(' ').filter(w=>w.length>=3&&!STOP.has(w)))];
+  const found=words.filter(w=>d.n.includes(' '+w+' ')||d.n.includes(' '+w));
+  if(words.length>1&&found.length>=words.length/2)return {c:.5*found.length/words.length,label:term+' (found '+found.join(', ')+')',part:1};
+  return {c:0,label:term};
+}
+
+function analyse(){
+  const key=split($('key').value),rest=split($('want').value).filter(x=>!key.some(k=>k.toLowerCase()===x.toLowerCase()));
+  const terms=[...key.map(t=>({t,w:3})),...rest.map(t=>({t,w:1}))];
+  const rows=docs.map(d=>{
+    if(d.error)return {d,unread:true};
+    d.n=d.n||norm(d.text);d.c=d.c||compact(d.text);
+    const yrs=maxYears(d.text);let got=0,tot=0,hits=[],part=[],miss=[],det=[];
+    terms.forEach(x=>{const r=credit(x.t,d,yrs);tot+=x.w;got+=x.w*r.c;det.push(r.c);
+      if(r.c>=1)hits.push(r.label);else if(r.part&&r.c>0)part.push(r.label);else miss.push(r.label)});
+    return {d,hits,part,miss,det,pct:tot?Math.round(got/tot*100):0};
+  });
+  const read=rows.filter(r=>!r.unread).sort((a,b)=>b.pct-a.pct);
+  const top=read.length?read[0].pct:0;
+  read.forEach((r,i)=>{r.rank=i+1;
+    r.tier=!terms.length?'none':top<20?'no':r.pct>=top-3?'best':r.pct>=Math.max(25,top*.6)?'chance':'no'});
+  const nobody=read.length>1?terms.filter((x,i)=>read.every(r=>r.det[i]===0)).map(x=>x.t):[];
+  return {terms,read,unread:rows.filter(r=>r.unread),top,nobody};
+}
+
+const LABEL={best:'Best fit',chance:'Worth a call',no:'Unlikely',none:'Not rated'};
+function why(r,a){
+  const n=a.read.length,p=[];
+  if(r.tier==='none')return 'Type what you are looking for above to rate this CV.';
+  if(r.tier==='best')p.push(r.rank===1?'Best fit of the '+n+' CV'+(n>1?'s':'')+' read, at '+r.pct+'%.':'Joint best fit at '+r.pct+'%.');
+  else if(r.tier==='chance')p.push('Stands a chance. '+(a.top-r.pct)+' points behind the top pick at '+r.pct+'%, but it covers enough of what you asked for to be worth a call.');
+  else p.push(a.top<20?'Little in this batch matches what you typed.':'Well behind the best fit ('+(a.top-r.pct)+' points back, at '+r.pct+'%).');
+  if(r.rank===1&&n>1){const o=a.read[1],extra=r.hits.filter(h=>!o.hits.includes(h));
+    if(extra.length)p.push('It leads #2 because only this CV clearly shows '+extra.join(', ')+'.')}
+  if(r.tier==='chance'&&r.miss.length)p.push('Ask about: '+r.miss.join(', ')+'.');
+  return p.join(' ');
+}
+function render(){
+  const a=analyse();
+  $('clear').hidden=!docs.length;
+  $('count').textContent=docs.length?docs.length+' CV'+(docs.length===1?'':'s'):'';
+  if(!docs.length){$('out').innerHTML='<div class="empty">No CVs yet.</div>';return}
+  const card=(cls,badge,name,text,r)=>'<div class="cv '+cls+'"><div class="top"><span class="name">'+esc(name)+'</span><span class="badge">'+badge+'</span></div>'+
+    '<p class="why">'+esc(text)+'</p>'+(r?'<div class="chips">'+r.hits.map(h=>'<span class="chip y">'+esc(h)+'</span>').join('')+r.part.map(h=>'<span class="chip p">'+esc(h)+'</span>').join('')+r.miss.map(h=>'<span class="chip m">Not found: '+esc(h)+'</span>').join('')+'</div>':'')+'</div>';
+  $('out').innerHTML=(a.nobody.length?'<div class="note">None of these CVs mention: '+esc(a.nobody.join(', '))+'. Ratings below only compare what is in this batch.</div>':'')+
+    a.read.map(r=>card(r.tier==='none'?'unread':r.tier,'#'+r.rank+' '+LABEL[r.tier]+(a.terms.length?' \u00b7 '+r.pct+'%':''),r.d.name,why(r,a),a.terms.length?r:null)).join('')+
+    a.unread.map(r=>card('unread','Read by hand',r.d.name,r.d.error,null)).join('');
+}
+
+const drop=$('drop');
+drop.onclick=()=>$('file').click();
+drop.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('file').click()}};
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over')}));
+drop.addEventListener('drop',e=>addFiles(e.dataTransfer.files));
+$('file').onchange=e=>{addFiles(e.target.files);e.target.value=''};
+$('want').oninput=render;$('key').oninput=render;
+$('clear').onclick=()=>{docs.length=0;status('');render()};
+window.addEventListener('dragover',e=>e.preventDefault());
+window.addEventListener('drop',e=>e.preventDefault());
+
+function mailAttachments(){
+  const item=Office.context.mailbox.item;
+  const atts=(item.attachments||[]).filter(x=>!x.isInline&&/\.(pdf|docx|txt)$/i.test(x.name));
+  if(!atts.length){status('This email has no PDF, Word or text attachments.');return}
+  addItems(atts.map(x=>({name:x.name,get:()=>new Promise((ok,no)=>item.getAttachmentContentAsync(x.id,r=>{
+    if(r.status!=='succeeded'||r.value.format!=='base64')return no(new Error('Outlook would not hand over this attachment.'));
+    ok(Uint8Array.from(atob(r.value.content),c=>c.charCodeAt(0)).buffer)}))})));
+}
+if(window.Office&&Office.onReady)Office.onReady(()=>{
+  if(Office.context&&Office.context.mailbox&&Office.context.mailbox.item){$('mail').hidden=false;$('mail').onclick=mailAttachments}
+});
+render();
+</script>
+</body>
+</html>
